@@ -1,0 +1,104 @@
+# Regulatory Capital Stress Testing - Configuration
+# Basel III/IV Framework Parameters
+
+framework:
+  name: "Regulatory Capital Stress Testing Platform"
+  version: "1.0.0"
+  regulatory_framework: "Basel III/IV"
+  supported_exercises:
+    - "CCAR"       # Comprehensive Capital Analysis and Review
+    - "DFAST"      # Dodd-Frank Act Stress Testing
+    - "ICAAP"      # Internal Capital Adequacy Assessment Process
+    - "EU_EBA"     # European Banking Authority Stress Test
+
+# Capital Requirements
+capital:
+  minimum_ratios:
+    cet1: 0.045              # Common Equity Tier 1 minimum
+    tier1: 0.06              # Tier 1 Capital minimum
+    total_capital: 0.08      # Total Capital minimum
+    leverage_ratio: 0.03     # Minimum Leverage Ratio
+  
+  buffers:
+    capital_conservation: 0.025    # Capital Conservation Buffer
+    countercyclical_min: 0.0       # Countercyclical Buffer (min)
+    countercyclical_max: 0.025     # Countercyclical Buffer (max)
+    gsib_surcharge: 0.01           # G-SIB Surcharge (varies 1-3.5%)
+  
+  risk_weights:
+    sovereign_aaa: 0.0
+    sovereign_aa: 0.0
+    sovereign_a: 0.20
+    sovereign_bbb: 0.50
+    sovereign_below_bbb: 1.00
+    bank_rated: 0.20
+    corporate_aaa_aa: 0.20
+    corporate_a: 0.50
+    corporate_bbb: 1.00
+    corporate_below_bbb: 1.50
+    retail: 0.75
+    residential_mortgage: 0.35
+    commercial_real_estate: 1.00
+
+# Scenario Definitions
+scenarios:
+  baseline:
+    name: "Baseline"
+    description: "Expected economic conditions"
+    gdp_growth_shock: 0.0
+    unemployment_shock: 0.0
+    interest_rate_shock: 0.0
+    credit_spread_shock: 0.0
+    equity_market_shock: 0.0
+    housing_price_shock: 0.0
+    probability: 0.60
+
+  adverse:
+    name: "Adverse"
+    description: "Moderately stressed economic conditions"
+    gdp_growth_shock: -0.025
+    unemployment_shock: 0.03
+    interest_rate_shock: 0.015
+    credit_spread_shock: 0.02
+    equity_market_shock: -0.20
+    housing_price_shock: -0.10
+    probability: 0.30
+
+  severely_adverse:
+    name: "Severely Adverse"
+    description: "Severe recession with financial market stress"
+    gdp_growth_shock: -0.065
+    unemployment_shock: 0.06
+    interest_rate_shock: -0.01
+    credit_spread_shock: 0.05
+    equity_market_shock: -0.45
+    housing_price_shock: -0.30
+    probability: 0.10
+
+# Model Parameters
+models:
+  credit_loss:
+    method: "through_the_cycle"
+    pd_model: "logistic_regression"
+    lgd_model: "beta_regression"
+    ead_model: "ccf_approach"
+    correlation_asset: 0.15
+    maturity_adjustment: true
+    
+  market_risk:
+    var_confidence: 0.99
+    var_horizon_days: 10
+    stressed_var_window: 252
+    expected_shortfall: true
+    
+  operational_risk:
+    method: "standardized_approach"
+    business_indicator_coefficient: 0.12
+    internal_loss_multiplier: 1.0
+
+# Reporting
+reporting:
+  output_format: ["xlsx", "pdf", "json"]
+  projection_horizon_quarters: 9
+  confidence_intervals: [0.95, 0.99]
+  generate_visualizations: true
