@@ -1,4 +1,4 @@
-# 🏛️ Regulatory Capital Stress Testing Platform
+# Regulatory Capital Stress Testing Platform
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![Tests](https://img.shields.io/badge/tests-53%20passed-brightgreen.svg)]()
@@ -10,7 +10,7 @@
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Key Features](#key-features)
@@ -62,155 +62,48 @@ The system processes a bank's credit portfolio, market risk positions, and opera
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    REGULATORY CAPITAL STRESS TESTING PLATFORM               │
-│                         Basel III/IV · CCAR/DFAST                           │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-                              ┌──────────────┐
-                              │   main.py    │
-                              │  (Pipeline   │
-                              │ Orchestrator)│
-                              └──────┬───────┘
-                                     │
-              ┌──────────────────────┼──────────────────────┐
-              │                      │                      │
-              ▼                      ▼                      ▼
-  ┌───────────────────┐  ┌───────────────────┐  ┌───────────────────┐
-  │   DATA LAYER      │  │  SCENARIO ENGINE   │  │   CONFIG LAYER    │
-  │                   │  │                   │  │                   │
-  │ PortfolioData     │  │ MacroScenario     │  │ YAML Config       │
-  │   Generator       │  │ Generation        │  │ Loader            │
-  │                   │  │                   │  │                   │
-  │ DataValidator     │  │ • Baseline        │  │ Default Config    │
-  │                   │  │ • Adverse         │  │ Deep Merge        │
-  │ • Loan Portfolio  │  │ • Severely Adv.   │  │                   │
-  │ • Market Positions│  │ • Custom          │  │ • Capital Params  │
-  │ • Macro History   │  │ • Interpolated    │  │ • Risk Weights    │
-  │ • Income Stmt     │  │                   │  │ • Model Params    │
-  └────────┬──────────┘  └────────┬──────────┘  └───────────────────┘
-           │                      │
-           └──────────┬───────────┘
-                      │
-                      ▼
-  ┌─────────────────────────────────────────────────────────────────┐
-  │                      RISK MODELS LAYER                          │
-  │                                                                 │
-  │  ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐  │
-  │  │  CREDIT RISK    │ │  MARKET RISK    │ │ OPERATIONAL RISK│  │
-  │  │                 │ │                 │ │                 │  │
-  │  │ Basel IRB       │ │ Parametric VaR  │ │ SMA (Basel III) │  │
-  │  │ ASRF/Vasicek    │ │ Historical VaR  │ │ Business Ind.   │  │
-  │  │ PD Stress Model │ │ Monte Carlo VaR │ │ BI Component    │  │
-  │  │ LGD Downturn    │ │ Stressed VaR    │ │ Int. Loss Mult. │  │
-  │  │ Maturity Adj.   │ │ Expected Short. │ │ Stress Factors  │  │
-  │  │ MC Loss Dist.   │ │ IRRBB (EVE)     │ │                 │  │
-  │  │ Asset Correl.   │ │ FRTB Capital    │ │                 │  │
-  │  └────────┬────────┘ └────────┬────────┘ └────────┬────────┘  │
-  │           │                   │                    │           │
-  └───────────┼───────────────────┼────────────────────┼───────────┘
-              │                   │                    │
-              └───────────────────┼────────────────────┘
-                                  │
-                                  ▼
-  ┌─────────────────────────────────────────────────────────────────┐
-  │                   CAPITAL ADEQUACY ENGINE                       │
-  │                                                                 │
-  │  CapitalAdequacyCalculator                                      │
-  │  ├── compute_initial_capital()     → Pre-stress capital ratios  │
-  │  ├── run_stress_test()             → 9-quarter projection       │
-  │  │   ├── Quarter-by-quarter loop:                               │
-  │  │   │   ├── Stress PD (macro sensitivity)                      │
-  │  │   │   ├── Stress LGD (collateral shocks)                     │
-  │  │   │   ├── Compute credit losses                              │
-  │  │   │   ├── Stressed credit RWA (IRB)                          │
-  │  │   │   ├── Market risk under stress                           │
-  │  │   │   ├── Operational risk stress                            │
-  │  │   │   ├── PPNR estimation                                    │
-  │  │   │   └── Update capital position                            │
-  │  │   └── Min ratio across all quarters                          │
-  │  ├── run_all_scenarios()           → Multi-scenario execution   │
-  │  ├── generate_summary_report()     → Cross-scenario comparison  │
-  │  └── compute_capital_shortfall()   → Regulatory gap analysis    │
-  │                                                                 │
-  │  Capital Ratios Computed:                                       │
-  │  • CET1 Ratio    = CET1 Capital / Total RWA     (min: 4.5%)    │
-  │  • Tier 1 Ratio  = Tier 1 Capital / Total RWA   (min: 6.0%)    │
-  │  • Total Capital  = Total Capital / Total RWA    (min: 8.0%)    │
-  │  • Leverage Ratio = Tier 1 Capital / Exposure    (min: 3.0%)    │
-  └────────────────────────────┬────────────────────────────────────┘
-                               │
-                               ▼
-  ┌─────────────────────────────────────────────────────────────────┐
-  │                     REPORTING ENGINE                            │
-  │                                                                 │
-  │  ReportGenerator                                                │
-  │  ├── generate_capital_trajectory()  → Q-by-Q ratio paths        │
-  │  ├── generate_loss_decomposition()  → Risk-type breakdown       │
-  │  ├── generate_pass_fail_summary()   → Regulatory assessment     │
-  │  ├── export_to_json()               → Machine-readable output   │
-  │  ├── export_to_excel()              → Multi-sheet workbook      │
-  │  └── print_summary()               → Console dashboard         │
-  │                                                                 │
-  │  Output Artifacts:                                              │
-  │  ├── stress_test_results.json                                   │
-  │  └── stress_test_report.xlsx                                    │
-  │      ├── Summary                                                │
-  │      ├── Pass_Fail                                              │
-  │      ├── Loss_Decomposition                                     │
-  │      ├── Baseline (trajectory)                                  │
-  │      ├── Adverse (trajectory)                                   │
-  │      └── Severely Adverse (trajectory)                          │
-  └─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    MAIN[main.py<br/>Pipeline Orchestrator]
+    subgraph LAYERS[Inputs]
+        DATA[Data Layer<br/>PortfolioData Generator<br/>DataValidator<br/>Loan Portfolio, Market Positions<br/>Macro History, Income Statement]
+        SCEN[Scenario Engine<br/>MacroScenario Generation<br/>Baseline / Adverse / Sev Adv<br/>Custom, Interpolated]
+        CFG[Config Layer<br/>YAML Config Loader<br/>Default Config Deep Merge<br/>Capital Params, Risk Weights, Model Params]
+    end
+    subgraph RISK[Risk Models Layer]
+        CR[Credit Risk<br/>Basel IRB, ASRF/Vasicek<br/>PD Stress, LGD Downturn<br/>Maturity Adj, MC Loss Dist<br/>Asset Correlation]
+        MR[Market Risk<br/>Parametric VaR, Historical VaR<br/>Monte Carlo VaR, Stressed VaR<br/>Expected Shortfall, IRRBB EVE<br/>FRTB Capital]
+        OR[Operational Risk<br/>SMA Basel III<br/>Business Indicator Component<br/>Internal Loss Multiplier<br/>Stress Factors]
+    end
+    CAE[Capital Adequacy Engine<br/>compute_initial_capital, run_stress_test<br/>9-quarter projection: Stress PD/LGD, Credit Losses<br/>Stressed RWA, Market+Op stress, PPNR<br/>Ratios: CET1 4.5%, Tier 1 6%, Total 8%, Leverage 3%]
+    RPT[Reporting Engine<br/>capital_trajectory, loss_decomposition<br/>pass_fail_summary, JSON + Excel exports<br/>Artifacts: stress_test_results.json, stress_test_report.xlsx]
+    MAIN --> DATA & SCEN & CFG
+    DATA --> RISK
+    SCEN --> RISK
+    CFG --> RISK
+    RISK --> CAE --> RPT
 ```
 
 ### Data Flow
 
-```
-  Synthetic Data       Macro Scenarios        Config
-  (or Real Data)       (Fed-defined)         (YAML)
-       │                    │                   │
-       ▼                    ▼                   ▼
-  ┌─────────┐        ┌──────────┐        ┌─────────┐
-  │Loan Port│        │ Baseline │        │ Basel   │
-  │Market   │        │ Adverse  │        │ Params  │
-  │Positions│        │ Sev. Adv │        │ Ratios  │
-  └────┬────┘        └────┬─────┘        └────┬────┘
-       │                  │                   │
-       └──────────────────┼───────────────────┘
-                          │
-                    ┌─────▼─────┐
-                    │ Validation│
-                    └─────┬─────┘
-                          │
-              ┌───────────┼───────────┐
-              │           │           │
-         ┌────▼───┐  ┌────▼───┐  ┌───▼────┐
-         │Credit  │  │Market  │  │  Op    │
-         │Risk    │  │Risk    │  │ Risk   │
-         │Model   │  │Model   │  │ Model  │
-         └────┬───┘  └────┬───┘  └───┬────┘
-              │           │          │
-              └───────────┼──────────┘
-                          │
-                   ┌──────▼──────┐
-                   │  Capital    │
-                   │  Adequacy   │
-                   │  Calculator │
-                   └──────┬──────┘
-                          │
-                   ┌──────▼──────┐
-                   │  Reporting  │
-                   │  Engine     │
-                   └──────┬──────┘
-                          │
-              ┌───────────┼───────────┐
-              │           │           │
-         ┌────▼───┐  ┌────▼───┐  ┌───▼────┐
-         │ Excel  │  │  JSON  │  │Console │
-         │ Report │  │ Export │  │Summary │
-         └────────┘  └────────┘  └────────┘
+```mermaid
+flowchart TD
+    SD[Synthetic Data<br/>or Real Data] --> LP[Loan Portfolio<br/>Market Positions]
+    MS[Macro Scenarios<br/>Fed-defined] --> SC[Baseline / Adverse / Sev Adv]
+    CFG[Config YAML] --> BP[Basel Params<br/>Ratios]
+    LP --> VAL[Validation]
+    SC --> VAL
+    BP --> VAL
+    VAL --> CRM[Credit Risk Model]
+    VAL --> MRM[Market Risk Model]
+    VAL --> ORM[Op Risk Model]
+    CRM --> CAC[Capital Adequacy Calculator]
+    MRM --> CAC
+    ORM --> CAC
+    CAC --> REP[Reporting Engine]
+    REP --> XL[Excel Report]
+    REP --> JS[JSON Export]
+    REP --> CON[Console Summary]
 ```
 
 ---
@@ -479,10 +372,10 @@ python -m pytest tests/test_stress_testing.py::TestCreditRiskModel -v
 
 | Ratio | Minimum | Baseline | Adverse | Sev. Adverse |
 |-------|---------|----------|---------|--------------|
-| CET1 | 4.5% | ✅ PASS | ✅ PASS | ✅ PASS |
-| Tier 1 | 6.0% | ✅ PASS | ✅ PASS | ✅ PASS |
-| Total Capital | 8.0% | ✅ PASS | ✅ PASS | ✅ PASS |
-| Leverage | 3.0% | ✅ PASS | ✅ PASS | ✅ PASS |
+| CET1 | 4.5% |  PASS |  PASS |  PASS |
+| Tier 1 | 6.0% |  PASS |  PASS |  PASS |
+| Total Capital | 8.0% |  PASS |  PASS |  PASS |
+| Leverage | 3.0% |  PASS |  PASS |  PASS |
 
 ---
 
